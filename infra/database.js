@@ -3,10 +3,10 @@ import { Client } from "pg";
 /**
  * Executa uma query no banco de dados PostgreSQL.
  *
- * @param {string} queryObject - Query SQL, ex: "SELECT * FROM users".
+ * @param {string | {text: string, values: Array}} queryInput - Query SQL simples como "SELECT * FROM users" ou query parametrizada como {text: "SELECT * FROM users WHERE name = $1", values: [userName]}.
  * @returns {Promise<{rows: Array<object>}>} Retorna um objeto que tem dentro dele uma propriedade chamada "rows", que é um array de objetos onde cada objeto é uma linha do resultado da query.
  */
-async function query(queryObject) {
+async function query(queryInput) {
   const client = new Client({
     host: process.env.POSTGRES_HOST,
     port: process.env.POSTGRES_PORT,
@@ -16,9 +16,14 @@ async function query(queryObject) {
   });
   await client.connect();
 
-  const result = await client.query(queryObject);
-  await client.end();
-  return result;
+  try {
+    const result = await client.query(queryInput);
+    return result;
+  } catch (error) {
+    console.error(error);
+  } finally {
+    await client.end();
+  }
 }
 
 export default {
