@@ -13,7 +13,7 @@ async function query(queryInput) {
     user: process.env.POSTGRES_USER,
     database: process.env.POSTGRES_DB,
     password: process.env.POSTGRES_PASSWORD,
-    ssl: process.env.NODE_ENV === "development" ? false : true,
+    ssl: getSSLValues(),
   });
 
   try {
@@ -31,3 +31,22 @@ async function query(queryInput) {
 export default {
   query: query,
 };
+
+/**
+ * Retorna a configuração SSL para conexão com o PostgreSQL.
+ *
+ * - Se a variável POSTGRES_CA existir (DigitalOcean p.ex), retorna o certificado e ignora o restante.
+ * - Se não existir e o ambiente for desenvolvimento, retorna false (sem SSL).
+ * - Se não existir e o ambiente for produção, retorna true (SSL padrão).
+ *
+ * @returns {boolean | {ca: string}} Objeto com certificado CA se disponível, true para produção ou false para desenvolvimento.
+ */
+function getSSLValues() {
+  if (process.env.POSTGRES_CA) {
+    return {
+      ca: process.env.POSTGRES_CA,
+    };
+  }
+
+  return process.env.NODE_ENV === "development" ? false : true;
+}
