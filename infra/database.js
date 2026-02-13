@@ -40,10 +40,12 @@ async function getNewClient() {
   return client;
 }
 
-export default {
+const database = {
   query,
   getNewClient,
 };
+
+export default database;
 
 /**
  * Retorna a configuração SSL para conexão com o PostgreSQL.
