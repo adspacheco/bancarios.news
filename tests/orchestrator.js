@@ -1,4 +1,5 @@
 import retry from "async-retry";
+import database from "infra/database.js";
 
 /**
  * Aguarda todos os serviços necessários estarem prontos antes de rodar os testes.
@@ -45,8 +46,23 @@ async function waitForAllServices() {
   }
 }
 
+/**
+ * Limpa completamente o banco de dados, removendo todas as tabelas,
+ * funções e dados existentes.
+ *
+ * Faz isso derrubando o schema `public` inteiro com `CASCADE`
+ * (que remove tudo dentro dele em cadeia) e recriando-o vazio logo
+ * em seguida, deixando o banco no estado inicial para o próximo teste.
+ *
+ * @returns {Promise<void>}
+ */
+async function clearDatabase() {
+  await database.query("drop schema public cascade; create schema public;");
+}
+
 const orchestrator = {
   waitForAllServices,
+  clearDatabase,
 };
 
 export default orchestrator;
