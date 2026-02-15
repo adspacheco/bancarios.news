@@ -1,3 +1,3 @@
-# bancarios.tech
+# bancarios.news
 
-Conteúdo para bancários que lidam com tecnologia.
+Conteúdo para bancários!

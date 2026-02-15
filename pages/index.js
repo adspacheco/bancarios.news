@@ -1,5 +1,5 @@
 /**
- * Página inicial do site Bancarios.Tech.
+ * Página inicial do site Bancarios.news.
  * @returns {JSX.Element} Estrutura da página inicial.
  */
 function Home() {
