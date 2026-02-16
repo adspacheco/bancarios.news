@@ -1,28 +1,80 @@
 /**
- * Erro interno do servidor (HTTP 500).
- * Encapsula o erro original e expõe uma mensagem segura para o cliente.
+ * Erro genérico para falhas internas inesperadas.
+ * Encapsula o erro original em `cause` e responde com status 500 por padrão.
  *
- * @extends Error
+ * @extends {Error}
  */
 export class InternalServerError extends Error {
   /**
-   * @param {Object} params
-   * @param {Error} params.cause - Erro original que causou a falha.
+   * @param {object} params
+   * @param {Error} [params.cause] - Erro original que causou a falha.
+   * @param {number} [params.statusCode=500] - Código HTTP de resposta.
    */
-  constructor({ cause }) {
+  constructor({ cause, statusCode }) {
     super("Um erro interno não esperado aconteceu.", {
       cause,
     });
     this.name = "InternalServerError";
     this.action = "Entre em contato com o suporte.";
-    this.statusCode = 500;
+    this.statusCode = statusCode || 500;
   }
 
+  toJSON() {
+    return {
+      name: this.name,
+      message: this.message,
+      action: this.action,
+      status_code: this.statusCode,
+    };
+  }
+}
+
+/**
+ * Erro para quando um serviço externo (banco de dados, API, etc.) está indisponível.
+ * Responde com status 503.
+ *
+ * @extends {Error}
+ */
+export class ServiceError extends Error {
   /**
-   * Serializa o erro para JSON, expondo apenas informações seguras.
-   *
-   * @returns {{name: string, message: string, action: string, status_code: number}}
+   * @param {object} params
+   * @param {Error} [params.cause] - Erro original vindo do serviço.
+   * @param {string} [params.message="Serviço indisponível no momento."] - Mensagem descritiva do erro.
    */
+  constructor({ cause, message }) {
+    super(message || "Serviço indisponível no momento.", {
+      cause,
+    });
+    this.name = "ServiceError";
+    this.action = "Verifique se o serviço está disponível.";
+    this.statusCode = 503;
+  }
+
+  toJSON() {
+    return {
+      name: this.name,
+      message: this.message,
+      action: this.action,
+      status_code: this.statusCode,
+    };
+  }
+}
+
+/**
+ * Erro para quando o cliente usa um método HTTP não suportado pelo endpoint.
+ * Responde com status 405.
+ *
+ * @extends {Error}
+ */
+export class MethodNotAllowedError extends Error {
+  constructor() {
+    super("Método não permitido para este endpoint.");
+    this.name = "MethodNotAllowedError";
+    this.action =
+      "Verifique se o método HTTP enviado é válido para este endpoint.";
+    this.statusCode = 405;
+  }
+
   toJSON() {
     return {
       name: this.name,
