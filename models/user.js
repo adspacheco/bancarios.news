@@ -1,4 +1,5 @@
 import database from "infra/database.js";
+import password from "models/password.js";
 import { NotFoundError, ValidationError } from "infra/errors.js";
 
 /**
@@ -72,6 +73,7 @@ async function findOneByUsername(username) {
 async function create(userInputValues) {
   await validateUniqueEmail(userInputValues.email);
   await validateUniqueUsername(userInputValues.username);
+  await hashPasswordInObject(userInputValues);
 
   const newUser = await runInsertQuery(userInputValues);
   return newUser;
@@ -128,6 +130,19 @@ async function create(userInputValues) {
         action: "Utilize outro username para realizar o cadastro.",
       });
     }
+  }
+
+  /**
+   * Substitui a senha em texto puro pelo hash bcrypt dentro do próprio objeto.
+   *
+   * Mutação intencional: altera userInputValues.password in-place para que
+   * o INSERT já receba o hash, nunca a senha original.
+   *
+   * @param {object} userInputValues - Objeto com os dados do usuário (é mutado).
+   */
+  async function hashPasswordInObject(userInputValues) {
+    const hashedPassword = await password.hash(userInputValues.password);
+    userInputValues.password = hashedPassword;
   }
 
   /**
