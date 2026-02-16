@@ -1,10 +1,12 @@
 import { Client } from "pg";
+import { ServiceError } from "./errors.js";
 
 /**
  * Executa uma query no banco de dados PostgreSQL.
  *
  * @param {string | {text: string, values: Array}} queryInput - Query SQL simples como "SELECT * FROM users" ou query parametrizada como {text: "SELECT * FROM users WHERE name = $1", values: [userName]}.
  * @returns {Promise<{rows: Array<object>}>} Retorna um objeto que tem dentro dele uma propriedade chamada "rows", que é um array de objetos onde cada objeto é uma linha do resultado da query.
+ * @throws {ServiceError} Erro na conexão com o banco ou na execução da query.
  */
 async function query(queryInput) {
   let client;
@@ -13,9 +15,11 @@ async function query(queryInput) {
     const result = await client.query(queryInput);
     return result;
   } catch (error) {
-    console.log("\n Erro dentro do catch do database.js:");
-    console.error(error);
-    throw error;
+    const serviceErrorObject = new ServiceError({
+      message: "Erro na conexão com Banco ou na Query.",
+      cause: error,
+    });
+    throw serviceErrorObject;
   } finally {
     await client?.end();
   }
