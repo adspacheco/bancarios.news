@@ -1,6 +1,7 @@
 import migrationRunner from "node-pg-migrate";
 import { resolve } from "node:path";
 import database from "infra/database.js";
+import { ServiceError } from "infra/errors.js";
 
 /**
  * Configurações padrão para o node-pg-migrate.
@@ -12,7 +13,7 @@ import database from "infra/database.js";
  */
 const defaultMigrationOptions = {
   dryRun: true,
-  dir: resolve("infra", "migrations"),
+  dir: resolve("infra", "migratiosns"),
   direction: "up",
   verbose: true,
   migrationsTable: "pgmigrations",
@@ -25,6 +26,7 @@ const defaultMigrationOptions = {
  * quais migrações seriam aplicadas sem alterar o banco.
  *
  * @returns {Promise<Array<object>>} Array de migrações pendentes encontradas pelo runner.
+ * @throws {ServiceError} Erro ao conectar no banco ou ao executar o runner.
  */
 async function listPendingMigrations() {
   let dbClient;
@@ -37,6 +39,11 @@ async function listPendingMigrations() {
       dbClient,
     });
     return pendingMigrations;
+  } catch (error) {
+    throw new ServiceError({
+      message: "Erro ao listar migrações pendentes.",
+      cause: error,
+    });
   } finally {
     await dbClient?.end();
   }
@@ -50,6 +57,7 @@ async function listPendingMigrations() {
  * (Ex.: 201 se migrou algo, 200 se não havia pendências).
  *
  * @returns {Promise<Array<object>>} Array de migrações que foram executadas.
+ * @throws {ServiceError} Erro ao conectar no banco ou ao executar o runner.
  */
 async function runPendingMigrations() {
   let dbClient;
@@ -64,6 +72,11 @@ async function runPendingMigrations() {
     });
 
     return migratedMigrations;
+  } catch (error) {
+    throw new ServiceError({
+      message: "Erro ao executar migrações pendentes.",
+      cause: error,
+    });
   } finally {
     await dbClient?.end();
   }
