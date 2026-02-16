@@ -1,0 +1,16 @@
+@baseUrl = http://localhost:3000/api/v1
+# @baseUrl = https://www.bancarios.news/api/v1
+# @baseUrl =
+
+### Create user
+POST {{baseUrl}}/users
+Content-Type: application/json
+
+{
+    "username": "adspacheco",
+    "email": "adspacheco@bancarios.news",
+    "password": "senha"
+}
+
+### Get user
+GET {{baseUrl}}/users/ADSpacheco
