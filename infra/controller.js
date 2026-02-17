@@ -69,12 +69,32 @@ async function setSessionCookie(sessionToken, response) {
   response.setHeader("Set-Cookie", setCookie);
 }
 
+/**
+ * Remove o cookie `session_id` da resposta HTTP.
+ *
+ * Define o cookie com valor "invalid" e `maxAge` negativo,
+ * instruindo o browser a descartá-lo imediatamente.
+ *
+ * @param {import("http").ServerResponse} response - Objeto de resposta do Next.js.
+ */
+async function clearSessionCookie(response) {
+  const setCookie = cookie.serialize("session_id", "invalid", {
+    path: "/",
+    maxAge: -1,
+    secure: process.env.NODE_ENV === "production",
+    httpOnly: true,
+  });
+
+  response.setHeader("Set-Cookie", setCookie);
+}
+
 const controller = {
   errorHandlers: {
     onNoMatch: onNoMatchHandler,
     onError: onErrorHandler,
   },
   setSessionCookie,
+  clearSessionCookie,
 };
 
 export default controller;
