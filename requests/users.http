@@ -1,16 +1,26 @@
-@baseUrl = http://localhost:3000/api/v1
+# @baseUrl = http://localhost:3000/api/v1
 # @baseUrl = https://www.bancarios.news/api/v1
-# @baseUrl =
+@baseUrl = https://bancariosnews-git-hash-password-adsprojetos.vercel.app/api/v1
 
 ### Create user
 POST {{baseUrl}}/users
 Content-Type: application/json
 
 {
-    "username": "adspacheco",
-    "email": "adspacheco@bancarios.news",
+    "username": "adspacheco2",
+    "email": "adspacheco2@bancarios.news",
     "password": "senha"
 }
 
 ### Get user
-GET {{baseUrl}}/users/ADSpacheco
+GET {{baseUrl}}/users/ADSpacheco2
+
+### Update user
+PATCH {{baseUrl}}/users/adspacheCO2
+Content-Type: application/json
+
+{
+    "username": "adspacheco3",
+    "email": "adspacheco3@bancarios.news",
+    "password": "senha3"
+}
