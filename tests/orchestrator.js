@@ -1,6 +1,8 @@
 import retry from "async-retry";
+import { faker } from "@faker-js/faker";
 import database from "infra/database.js";
 import migrator from "models/migrator.js";
+import user from "models/user.js";
 
 /**
  * Aguarda todos os serviços necessários estarem prontos antes de rodar os testes.
@@ -70,10 +72,36 @@ async function runPendingMigrations() {
   await migrator.runPendingMigrations();
 }
 
+/**
+ * Cria um usuário no banco com dados gerados automaticamente pelo Faker.
+ *
+ * Cada campo (username, email, password) tem um valor padrão gerado,
+ * mas pode ser sobrescrito via `userObject` — útil quando o teste
+ * precisa de um valor específico (ex: testar username duplicado).
+ *
+ * O `replace(/[_.-]/g, "")` remove caracteres especiais que o Faker
+ * pode gerar no username mas que não são válidos para o nosso sistema.
+ *
+ * @param {object} [userObject] - Campos opcionais para sobrescrever os padrões.
+ * @param {string} [userObject.username] - Username desejado (padrão: gerado pelo Faker).
+ * @param {string} [userObject.email] - Email desejado (padrão: gerado pelo Faker).
+ * @param {string} [userObject.password] - Senha desejada (padrão: "validpassword").
+ * @returns {Promise<import("models/user.js").User>} Objeto do usuário criado no banco.
+ */
+async function createUser(userObject) {
+  return await user.create({
+    username:
+      userObject?.username || faker.internet.username().replace(/[_.-]/g, ""),
+    email: userObject?.email || faker.internet.email(),
+    password: userObject?.password || "validpassword",
+  });
+}
+
 const orchestrator = {
   waitForAllServices,
   clearDatabase,
   runPendingMigrations,
+  createUser,
 };
 
 export default orchestrator;
