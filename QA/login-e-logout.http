@@ -1,6 +1,6 @@
-@baseUrl = http://localhost:3000/api/v1
+#@baseUrl = http://localhost:3000/api/v1
 # @baseUrl = https://www.bancarios.news/api/v1
-# @baseUrl = https://bancariosnews-git-hash-password-adsprojetos.vercel.app/api/v1
+@baseUrl = https://bancariosnews-git-sessions-delete-adsprojetos.vercel.app/api/v1
 
 ### Create user
 POST {{baseUrl}}/users
