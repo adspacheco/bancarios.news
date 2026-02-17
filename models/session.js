@@ -144,10 +144,51 @@ async function renew(sessionId) {
   }
 }
 
+/**
+ * Expira uma sessão existente subtraindo 1 ano do `expires_at`.
+ *
+ * Usado no logout para invalidar a sessão imediatamente.
+ * A subtração garante que o `expires_at` fique no passado,
+ * fazendo com que `findOneValidByToken` não a encontre mais.
+ *
+ * @param {string} sessionId - UUID da sessão a ser expirada.
+ * @returns {Promise<Session>} Objeto da sessão com a data de expiração no passado.
+ */
+async function expireById(sessionId) {
+  const expiredSessionObject = await runUpdateQuery(sessionId);
+  return expiredSessionObject;
+
+  /**
+   * Executa o UPDATE no banco subtraindo 1 ano do `expires_at`.
+   *
+   * @param {string} sessionId
+   * @returns {Promise<Session>} Linha atualizada retornada pelo RETURNING *.
+   */
+  async function runUpdateQuery(sessionId) {
+    const results = await database.query({
+      text: `
+        UPDATE
+          sessions
+        SET
+          expires_at = expires_at - interval '1 year',
+          updated_at = NOW()
+        WHERE
+          id = $1
+        RETURNING
+          *
+        ;`,
+      values: [sessionId],
+    });
+
+    return results.rows[0];
+  }
+}
+
 const session = {
   create,
   findOneValidByToken,
   renew,
+  expireById,
   EXPIRATION_IN_MILLISECONDS,
 };
 

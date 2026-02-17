@@ -1,6 +1,6 @@
-@baseUrl = http://localhost:3000/api/v1
+#@baseUrl = http://localhost:3000/api/v1
 # @baseUrl = https://www.bancarios.news/api/v1
-# @baseUrl = https://bancariosnews-git-hash-password-adsprojetos.vercel.app/api/v1
+@baseUrl = https://bancariosnews-git-sessions-delete-adsprojetos.vercel.app/api/v1
 
 ### Create user
 POST {{baseUrl}}/users
@@ -12,7 +12,7 @@ Content-Type: application/json
     "password": "senha"
 }
 
-### Create session
+### Login (create session)
 POST {{baseUrl}}/sessions
 Content-Type: application/json
 
@@ -20,3 +20,9 @@ Content-Type: application/json
     "email": "adspacheco2@bancarios.news",
     "password": "senha"
 }
+
+### Logout (delete session)
+# Expira a sessão no banco (subtrai 1 ano do expires_at)
+# e limpa o cookie session_id da resposta.
+DELETE {{baseUrl}}/sessions
+Cookie: session_id=<token_do_login>
