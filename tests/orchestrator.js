@@ -5,6 +5,8 @@ import migrator from "models/migrator.js";
 import user from "models/user.js";
 import session from "models/session.js";
 
+const emailHttpUrl = `http://${process.env.EMAIL_HTTP_HOST}:${process.env.EMAIL_HTTP_PORT}`;
+
 /**
  * Aguarda todos os serviços necessários estarem prontos antes de rodar os testes.
  *
@@ -14,6 +16,7 @@ import session from "models/session.js";
  */
 async function waitForAllServices() {
   await waitForWebServer();
+  await waitForEmailServer();
 
   /**
    * Aguarda o Web Server (Next.js) estar respondendo na porta 3000.
@@ -51,6 +54,35 @@ async function waitForAllServices() {
 }
 
 /**
+ * Aguarda o servidor de email (MailCatcher) estar respondendo.
+ *
+ * Usa `async-retry` configurado com até 100 tentativas e intervalo
+ * máximo de 1 segundo entre elas.
+ *
+ * @returns {Promise<void>} Resolve quando o servidor responde com status 200.
+ */
+async function waitForEmailServer() {
+  return retry(fetchEmailPage, {
+    retries: 100,
+    maxTimeout: 1000,
+  });
+
+  /**
+   * Faz um fetch na interface HTTP do MailCatcher e verifica se
+   * respondeu com HTTP 200.
+   *
+   * @throws {Error} Lança erro se o status não for 200, sinalizando ao `async-retry` que deve tentar novamente.
+   */
+  async function fetchEmailPage() {
+    const response = await fetch(emailHttpUrl);
+
+    if (response.status !== 200) {
+      throw Error();
+    }
+  }
+}
+
+/**
  * Limpa completamente o banco de dados, removendo todas as tabelas,
  * funções e dados existentes.
  *
@@ -62,6 +94,44 @@ async function waitForAllServices() {
  */
 async function clearDatabase() {
   await database.query("drop schema public cascade; create schema public;");
+}
+
+/**
+ * Deleta todos os emails do MailCatcher.
+ *
+ * Útil para limpar a caixa de entrada entre testes,
+ * garantindo que `getLastEmail` retorne apenas emails
+ * gerados pelo teste atual.
+ *
+ * @returns {Promise<void>}
+ */
+async function deleteAllEmails() {
+  await fetch(`${emailHttpUrl}/messages`, {
+    method: "DELETE",
+  });
+}
+
+/**
+ * Retorna o último email recebido pelo MailCatcher, incluindo o corpo em texto plano.
+ *
+ * Busca a lista de mensagens, pega a última, e faz uma segunda
+ * requisição para obter o conteúdo em texto plano (`.plain`),
+ * anexando-o ao objeto como propriedade `text`.
+ *
+ * @returns {Promise<object>} Objeto do email com metadados do MailCatcher e propriedade `text` com o corpo em texto plano.
+ */
+async function getLastEmail() {
+  const emailListResponse = await fetch(`${emailHttpUrl}/messages`);
+  const emailListBody = await emailListResponse.json();
+  const lastEmailItem = emailListBody.pop();
+
+  const emailTextResponse = await fetch(
+    `${emailHttpUrl}/messages/${lastEmailItem.id}.plain`,
+  );
+  const emailTextBody = await emailTextResponse.text();
+
+  lastEmailItem.text = emailTextBody;
+  return lastEmailItem;
 }
 
 /**
@@ -117,6 +187,8 @@ const orchestrator = {
   runPendingMigrations,
   createUser,
   createSession,
+  deleteAllEmails,
+  getLastEmail,
 };
 
 export default orchestrator;

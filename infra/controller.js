@@ -23,8 +23,9 @@ function onNoMatchHandler(request, response) {
 
 /**
  * Handler global de erros. Se o erro for um `ValidationError` ou `NotFoundError`,
- * repassa direto com seu status code. Qualquer outro erro é encapsulado em um
- * `InternalServerError`.
+ * repassa direto com seu status code. Se for um `UnauthorizedError`, limpa o
+ * cookie de sessão antes de responder (invalidando a sessão no browser).
+ * Qualquer outro erro é encapsulado em um `InternalServerError`.
  *
  * @param {Error} error - Erro capturado pelo next-connect.
  * @param {import("http").IncomingMessage} request
