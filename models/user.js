@@ -1,4 +1,5 @@
 import database from "infra/database.js";
+import password from "models/password.js";
 import { NotFoundError, ValidationError } from "infra/errors.js";
 
 /**
@@ -70,65 +71,12 @@ async function findOneByUsername(username) {
  * @throws {ValidationError} Email ou username já existem no banco.
  */
 async function create(userInputValues) {
-  await validateUniqueEmail(userInputValues.email);
   await validateUniqueUsername(userInputValues.username);
+  await validateUniqueEmail(userInputValues.email);
+  await hashPasswordInObject(userInputValues);
 
   const newUser = await runInsertQuery(userInputValues);
   return newUser;
-
-  /**
-   * Verifica se já existe um usuário com o mesmo email (case-insensitive).
-   *
-   * @param {string} email
-   * @throws {ValidationError} Se o email já estiver em uso.
-   */
-  async function validateUniqueEmail(email) {
-    const results = await database.query({
-      text: `
-        SELECT
-          email
-        FROM
-          users
-        WHERE
-          LOWER(email) = LOWER($1)
-        ;`,
-      values: [email],
-    });
-
-    if (results.rowCount > 0) {
-      throw new ValidationError({
-        message: "O email informado já está sendo utilizado.",
-        action: "Utilize outro email para realizar o cadastro.",
-      });
-    }
-  }
-
-  /**
-   * Verifica se já existe um usuário com o mesmo username (case-insensitive).
-   *
-   * @param {string} username
-   * @throws {ValidationError} Se o username já estiver em uso.
-   */
-  async function validateUniqueUsername(username) {
-    const results = await database.query({
-      text: `
-        SELECT
-          username
-        FROM
-          users
-        WHERE
-          LOWER(username) = LOWER($1)
-        ;`,
-      values: [username],
-    });
-
-    if (results.rowCount > 0) {
-      throw new ValidationError({
-        message: "O username informado já está sendo utilizado.",
-        action: "Utilize outro username para realizar o cadastro.",
-      });
-    }
-  }
 
   /**
    * Executa o INSERT no banco e retorna o usuário criado.
@@ -156,9 +104,142 @@ async function create(userInputValues) {
   }
 }
 
+/**
+ * Atualiza os dados de um usuário existente.
+ *
+ * Busca o usuário atual pelo username, valida unicidade dos campos
+ * alterados e mescla os novos valores com os existentes.
+ *
+ * @param {string} username - Username do usuário a ser atualizado.
+ * @param {object} userInputValues - Campos a serem atualizados.
+ * @returns {Promise<User>} Objeto do usuário atualizado.
+ * @throws {NotFoundError} Se o username não for encontrado.
+ * @throws {ValidationError} Se o novo username ou email já estiver em uso.
+ */
+async function update(username, userInputValues) {
+  const currentUser = await findOneByUsername(username);
+
+  if ("username" in userInputValues) {
+    await validateUniqueUsername(userInputValues.username);
+  }
+
+  if ("email" in userInputValues) {
+    await validateUniqueEmail(userInputValues.email);
+  }
+
+  if ("password" in userInputValues) {
+    await hashPasswordInObject(userInputValues);
+  }
+
+  const userWithNewValues = { ...currentUser, ...userInputValues };
+
+  const updatedUser = await runUpdateQuery(userWithNewValues);
+  return updatedUser;
+
+  /**
+   * Executa o UPDATE no banco e retorna o usuário atualizado.
+   *
+   * @param {object} userWithNewValues
+   * @returns {Promise<User>} Linha atualizada retornada pelo RETURNING *.
+   */
+  async function runUpdateQuery(userWithNewValues) {
+    const results = await database.query({
+      text: `
+        UPDATE
+          users
+        SET
+          username = $2,
+          email = $3,
+          password = $4,
+          updated_at = timezone('utc', now())
+        WHERE
+          id = $1
+        RETURNING
+          *
+      `,
+      values: [
+        userWithNewValues.id,
+        userWithNewValues.username,
+        userWithNewValues.email,
+        userWithNewValues.password,
+      ],
+    });
+
+    return results.rows[0];
+  }
+}
+
+/**
+ * Verifica se já existe um usuário com o mesmo username (case-insensitive).
+ *
+ * @param {string} username
+ * @throws {ValidationError} Se o username já estiver em uso.
+ */
+async function validateUniqueUsername(username) {
+  const results = await database.query({
+    text: `
+      SELECT
+        username
+      FROM
+        users
+      WHERE
+        LOWER(username) = LOWER($1)
+      ;`,
+    values: [username],
+  });
+
+  if (results.rowCount > 0) {
+    throw new ValidationError({
+      message: "O username informado já está sendo utilizado.",
+      action: "Utilize outro username para realizar esta operação.",
+    });
+  }
+}
+
+/**
+ * Verifica se já existe um usuário com o mesmo email (case-insensitive).
+ *
+ * @param {string} email
+ * @throws {ValidationError} Se o email já estiver em uso.
+ */
+async function validateUniqueEmail(email) {
+  const results = await database.query({
+    text: `
+      SELECT
+        email
+      FROM
+        users
+      WHERE
+        LOWER(email) = LOWER($1)
+      ;`,
+    values: [email],
+  });
+
+  if (results.rowCount > 0) {
+    throw new ValidationError({
+      message: "O email informado já está sendo utilizado.",
+      action: "Utilize outro email para realizar esta operação.",
+    });
+  }
+}
+
+/**
+ * Substitui a senha em texto puro pelo hash bcrypt dentro do próprio objeto.
+ *
+ * Mutação intencional: altera userInputValues.password in-place para que
+ * o INSERT já receba o hash, nunca a senha original.
+ *
+ * @param {object} userInputValues - Objeto com os dados do usuário (é mutado).
+ */
+async function hashPasswordInObject(userInputValues) {
+  const hashedPassword = await password.hash(userInputValues.password);
+  userInputValues.password = hashedPassword;
+}
+
 const user = {
   create,
   findOneByUsername,
+  update,
 };
 
 export default user;
