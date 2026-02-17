@@ -13,6 +13,51 @@ import { NotFoundError, ValidationError } from "infra/errors.js";
  */
 
 /**
+ * Busca um único usuário pelo ID (UUID).
+ *
+ * @param {string} id - UUID do usuário a ser buscado.
+ * @returns {Promise<User>} Objeto do usuário encontrado.
+ * @throws {NotFoundError} Se nenhum usuário for encontrado com esse id.
+ */
+async function findOneById(id) {
+  const userFound = await runSelectQuery(id);
+
+  return userFound;
+
+  /**
+   * Executa o SELECT no banco e lança erro se não encontrar resultado.
+   *
+   * @param {string} id
+   * @returns {Promise<User>} Primeira linha retornada pela query.
+   * @throws {NotFoundError} Se rowCount for 0.
+   */
+  async function runSelectQuery(id) {
+    const results = await database.query({
+      text: `
+        SELECT
+          *
+        FROM
+          users
+        WHERE
+          id = $1
+        LIMIT
+          1
+        ;`,
+      values: [id],
+    });
+
+    if (results.rowCount === 0) {
+      throw new NotFoundError({
+        message: "O id informado não foi encontrado no sistema.",
+        action: "Verifique se o id está digitado corretamente.",
+      });
+    }
+
+    return results.rows[0];
+  }
+}
+
+/**
  * Busca um único usuário pelo username (case-insensitive).
  *
  * @param {string} username - Username a ser buscado.
@@ -283,6 +328,7 @@ async function hashPasswordInObject(userInputValues) {
 
 const user = {
   create,
+  findOneById,
   findOneByUsername,
   findOneByEmail,
   update,

@@ -1,0 +1,51 @@
+@baseUrl = http://localhost:3000/api/v1
+# @baseUrl = https://www.bancarios.news/api/v1
+
+
+### Create user
+POST {{baseUrl}}/users
+Content-Type: application/json
+
+{
+    "username": "adspacheco2",
+    "email": "adspacheco2@bancarios.news",
+    "password": "senha"
+}
+
+### Create session
+POST {{baseUrl}}/sessions
+Content-Type: application/json
+
+{
+    "email": "adspacheco2@bancarios.news",
+    "password": "senha"
+}
+
+### Get authenticated user
+# Retorna os dados do usuário logado e renova a sessão.
+#
+# COMO FUNCIONA A RENOVAÇÃO:
+#   - O token NÃO muda. O Set-Cookie sempre devolve o MESMO token.
+#   - O que renova é o expires_at no banco (mais 30 dias a cada chamada).
+#   - Para confirmar a renovação, consulte a tabela sessions no banco
+#     e compare o expires_at antes e depois da request.
+#
+# CACHE-CONTROL: no-store, no-cache, max-age=0, must-revalidate
+#   - Impede que browser/CDN/proxy cacheiem a resposta,
+#     garantindo que toda request chegue ao servidor
+#     e a sessão seja renovada de fato.
+#   - O no-store impede o cliente de armazenar a resposta,
+#     então mesmo que o Next.js gere um ETag automaticamente,
+#     o browser nunca guarda ele e nunca envia If-None-Match,
+#     eliminando qualquer risco de 304 Not Modified.
+#
+# CUIDADO COM O COOKIE JAR DO REST CLIENT:
+#   - O VS Code REST Client tem rest-client.rememberCookiesForSubsequentRequests
+#     habilitado por padrão. Isso faz ele guardar o Set-Cookie do "Create session"
+#     e enviar automaticamente nas requests seguintes.
+#   - Por isso, mesmo colocando um session_id inválido no Cookie abaixo,
+#     a request pode "passar" porque o REST Client envia o cookie válido
+#     do jar dele por baixo dos panos.
+#   - Para testar tokens inválidos corretamente, desabilite essa config
+GET {{baseUrl}}/user
+Cookie: session_id=3de8227333b14e315f6623f7e42c2173ba089362054a236c507dfa8a9687e50031c6855d7e3c32ed3f70e59c6c388460

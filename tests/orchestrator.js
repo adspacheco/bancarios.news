@@ -3,6 +3,7 @@ import { faker } from "@faker-js/faker";
 import database from "infra/database.js";
 import migrator from "models/migrator.js";
 import user from "models/user.js";
+import session from "models/session.js";
 
 /**
  * Aguarda todos os serviços necessários estarem prontos antes de rodar os testes.
@@ -97,11 +98,25 @@ async function createUser(userObject) {
   });
 }
 
+/**
+ * Cria uma sessão para o usuário informado.
+ *
+ * Wrapper sobre `session.create()` para simplificar a criação
+ * de sessões nos testes sem repetir imports.
+ *
+ * @param {string} userId - UUID do usuário dono da sessão.
+ * @returns {Promise<import("models/session.js").Session>} Objeto da sessão criada.
+ */
+async function createSession(userId) {
+  return await session.create(userId);
+}
+
 const orchestrator = {
   waitForAllServices,
   clearDatabase,
   runPendingMigrations,
   createUser,
+  createSession,
 };
 
 export default orchestrator;
