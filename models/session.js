@@ -1,18 +1,36 @@
+// Gerenciamento do ciclo de vida das sessões de autenticação.
+//
+// Fluxo completo:
+// 1. Login  → create()              → gera token + cookie
+// 2. Request autenticado → findOneValidByToken() → valida sessão
+//                        → renew()               → estende expiração
+// 3. Logout → expireById()          → invalida sessão + limpa cookie
+//
+// As sessões não são deletadas do banco no logout — o expireById() joga o
+// expires_at para o passado. Assim o registro permanece para auditoria,
+// mas findOneValidByToken() não o encontra mais (filtra expires_at > NOW()).
 import crypto from "node:crypto";
 import database from "infra/database.js";
 import { UnauthorizedError } from "infra/errors";
 
 /**
  * @typedef {object} Session
- * @property {string} id
+ * @property {string} id - UUID v4 gerado automaticamente pelo banco.
  * @property {string} token - Token aleatório de 48 bytes em hex (96 caracteres).
- * @property {string} user_id
- * @property {Date} expires_at
- * @property {Date} created_at
- * @property {Date} updated_at
+ * @property {string} user_id - UUID do usuário dono da sessão (FK → users.id).
+ * @property {Date} expires_at - Data de expiração (NOW() + 30 dias na criação).
+ * @property {Date} created_at - Timestamp UTC da criação.
+ * @property {Date} updated_at - Timestamp UTC da última atualização.
  */
 
-/** Tempo de expiração da sessão: 30 dias em milissegundos. */
+/**
+ * Tempo de expiração da sessão: 30 dias em milissegundos.
+ * Usado aqui para calcular expires_at e no controller.js para o maxAge do cookie.
+ *
+ * @type {number}
+ * @example
+ * // 60s * 60m * 24h * 30d * 1000ms = 2.592.000.000 ms
+ */
 const EXPIRATION_IN_MILLISECONDS = 60 * 60 * 24 * 30 * 1000;
 
 /**
@@ -24,6 +42,10 @@ const EXPIRATION_IN_MILLISECONDS = 60 * 60 * 24 * 30 * 1000;
  * @param {string} sessionToken - Token de sessão (96 caracteres hex).
  * @returns {Promise<Session>} Objeto da sessão encontrada.
  * @throws {UnauthorizedError} Se nenhuma sessão ativa for encontrada com esse token.
+ *
+ * @example
+ * const session = await session.findOneValidByToken(cookieToken);
+ * // Se o token for inválido ou expirado → UnauthorizedError
  */
 async function findOneValidByToken(sessionToken) {
   const sessionFound = await runSelectQuery(sessionToken);
@@ -69,8 +91,15 @@ async function findOneValidByToken(sessionToken) {
  *
  * @param {string} userId - ID do usuário dono da sessão.
  * @returns {Promise<Session>} Objeto da sessão recém-criada (todas as colunas via RETURNING *).
+ *
+ * @example
+ * const newSession = await session.create(user.id);
+ * // newSession.token → "a3f1b2..." (96 chars hex)
  */
 async function create(userId) {
+  // randomBytes(48) gera 48 bytes aleatórios. Cada byte vira 2 caracteres
+  // hex, resultando em um token de 96 caracteres — suficiente para ser
+  // criptograficamente seguro e impossível de adivinhar por brute-force.
   const token = crypto.randomBytes(48).toString("hex");
   const expiresAt = new Date(Date.now() + EXPIRATION_IN_MILLISECONDS);
 
@@ -110,6 +139,10 @@ async function create(userId) {
  *
  * @param {string} sessionId - UUID da sessão a ser renovada.
  * @returns {Promise<Session>} Objeto da sessão com a nova data de expiração.
+ *
+ * @example
+ * // Chamado a cada request autenticado em GET /api/v1/user
+ * const renewed = await session.renew(currentSession.id);
  */
 async function renew(sessionId) {
   const expiresAt = new Date(Date.now() + EXPIRATION_IN_MILLISECONDS);
@@ -149,10 +182,18 @@ async function renew(sessionId) {
  *
  * Usado no logout para invalidar a sessão imediatamente.
  * A subtração garante que o `expires_at` fique no passado,
- * fazendo com que `findOneValidByToken` não a encontre mais.
+ * fazendo com que `findOneValidByToken` não a encontre mais
+ * (que filtra `expires_at > NOW()`).
+ *
+ * Por que não deletar? Manter o registro permite auditoria futura
+ * (quando o usuário logou, quando deslogou) sem perder dados.
  *
  * @param {string} sessionId - UUID da sessão a ser expirada.
  * @returns {Promise<Session>} Objeto da sessão com a data de expiração no passado.
+ *
+ * @example
+ * // DELETE /api/v1/sessions (logout)
+ * const expired = await session.expireById(currentSession.id);
  */
 async function expireById(sessionId) {
   const expiredSessionObject = await runUpdateQuery(sessionId);

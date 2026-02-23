@@ -1,15 +1,27 @@
+// CRUD de usuários e validações de negócio.
+//
+// Padrões usados neste módulo:
+// - Cada função pública (create, findOne*, update) delega a query SQL
+//   para uma função aninhada (runSelectQuery, runInsertQuery, etc.),
+//   separando a lógica de negócio da execução do SQL.
+// - Todas as queries usam parâmetros ($1, $2) para evitar SQL injection.
+// - Buscas por username e email usam LOWER() para ser case-insensitive,
+//   já que "Fulano" e "fulano" devem ser considerados o mesmo usuário.
+// - Validações de unicidade são feitas antes do INSERT/UPDATE para
+//   retornar mensagens específicas (ValidationError) ao cliente, em vez
+//   de depender de erros genéricos de constraint do banco (duplicate key).
 import database from "infra/database.js";
 import password from "models/password.js";
 import { NotFoundError, ValidationError } from "infra/errors.js";
 
 /**
  * @typedef {object} User
- * @property {string} id
- * @property {string} username
- * @property {string} email
- * @property {string} password
- * @property {Date} created_at
- * @property {Date} updated_at
+ * @property {string} id - UUID v4 gerado automaticamente pelo banco.
+ * @property {string} username - Único, max 30 chars.
+ * @property {string} email - Único, max 254 chars.
+ * @property {string} password - Hash bcrypt, sempre 60 chars.
+ * @property {Date} created_at - Timestamp UTC da criação.
+ * @property {Date} updated_at - Timestamp UTC da última atualização.
  */
 
 /**
@@ -18,6 +30,9 @@ import { NotFoundError, ValidationError } from "infra/errors.js";
  * @param {string} id - UUID do usuário a ser buscado.
  * @returns {Promise<User>} Objeto do usuário encontrado.
  * @throws {NotFoundError} Se nenhum usuário for encontrado com esse id.
+ *
+ * @example
+ * const foundUser = await user.findOneById("uuid-do-usuario");
  */
 async function findOneById(id) {
   const userFound = await runSelectQuery(id);
@@ -63,6 +78,9 @@ async function findOneById(id) {
  * @param {string} username - Username a ser buscado.
  * @returns {Promise<User>} Objeto do usuário encontrado.
  * @throws {NotFoundError} Se nenhum usuário for encontrado com esse username.
+ *
+ * @example
+ * const foundUser = await user.findOneByUsername("fulano"); // encontra "Fulano", "FULANO", etc.
  */
 async function findOneByUsername(username) {
   const userFound = await runSelectQuery(username);
@@ -108,6 +126,9 @@ async function findOneByUsername(username) {
  * @param {string} email - Email a ser buscado.
  * @returns {Promise<User>} Objeto do usuário encontrado.
  * @throws {NotFoundError} Se nenhum usuário for encontrado com esse email.
+ *
+ * @example
+ * const foundUser = await user.findOneByEmail("fulano@email.com");
  */
 async function findOneByEmail(email) {
   const userFound = await runSelectQuery(email);
@@ -159,8 +180,19 @@ async function findOneByEmail(email) {
  * @param {string} userInputValues.password
  * @returns {Promise<User>} Objeto do usuário recém-criado (todas as colunas via RETURNING *).
  * @throws {ValidationError} Email ou username já existem no banco.
+ *
+ * @example
+ * const newUser = await user.create({
+ *   username: "fulano",
+ *   email: "fulano@email.com",
+ *   password: "senhasegura123",
+ * });
+ * // newUser.password já é o hash bcrypt, nunca a senha original.
  */
 async function create(userInputValues) {
+  // 1. Valida unicidade antes do INSERT para mensagens específicas.
+  // 2. Faz o hash da senha in-place (muta o objeto).
+  // 3. Só então insere no banco.
   await validateUniqueUsername(userInputValues.username);
   await validateUniqueEmail(userInputValues.email);
   await hashPasswordInObject(userInputValues);
@@ -205,10 +237,16 @@ async function create(userInputValues) {
  * @returns {Promise<User>} Objeto do usuário atualizado.
  * @throws {NotFoundError} Se o username não for encontrado.
  * @throws {ValidationError} Se o novo username ou email já estiver em uso.
+ *
+ * @example
+ * // Atualiza apenas o email, mantendo os demais campos intactos.
+ * const updated = await user.update("fulano", { email: "novo@email.com" });
  */
 async function update(username, userInputValues) {
   const currentUser = await findOneByUsername(username);
 
+  // Só valida/processa os campos que foram enviados no request.
+  // O operador "in" checa se a chave existe no objeto, independente do valor.
   if ("username" in userInputValues) {
     await validateUniqueUsername(userInputValues.username);
   }
@@ -221,6 +259,8 @@ async function update(username, userInputValues) {
     await hashPasswordInObject(userInputValues);
   }
 
+  // Merge: spread do usuário atual + campos novos por cima.
+  // Campos não enviados mantêm o valor original do banco.
   const userWithNewValues = { ...currentUser, ...userInputValues };
 
   const updatedUser = await runUpdateQuery(userWithNewValues);
@@ -260,6 +300,7 @@ async function update(username, userInputValues) {
 }
 
 /**
+ * @private
  * Verifica se já existe um usuário com o mesmo username (case-insensitive).
  *
  * @param {string} username
@@ -287,6 +328,7 @@ async function validateUniqueUsername(username) {
 }
 
 /**
+ * @private
  * Verifica se já existe um usuário com o mesmo email (case-insensitive).
  *
  * @param {string} email
@@ -314,10 +356,11 @@ async function validateUniqueEmail(email) {
 }
 
 /**
+ * @private
  * Substitui a senha em texto puro pelo hash bcrypt dentro do próprio objeto.
  *
  * Mutação intencional: altera userInputValues.password in-place para que
- * o INSERT já receba o hash, nunca a senha original.
+ * o INSERT/UPDATE já receba o hash, nunca a senha original.
  *
  * @param {object} userInputValues - Objeto com os dados do usuário (é mutado).
  */

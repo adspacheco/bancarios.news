@@ -1,3 +1,13 @@
+// Módulo utilitário que centraliza operações comuns dos testes de integração.
+// Em vez de cada arquivo de teste repetir setup (esperar serviços, limpar banco,
+// criar usuários), o orchestrator expõe métodos prontos para isso.
+//
+// Uso típico nos testes:
+//   beforeAll(async () => {
+//     await orchestrator.waitForAllServices();
+//     await orchestrator.clearDatabase();
+//     await orchestrator.runPendingMigrations();
+//   });
 import retry from "async-retry";
 import { faker } from "@faker-js/faker";
 import database from "infra/database.js";
@@ -5,6 +15,9 @@ import migrator from "models/migrator.js";
 import user from "models/user.js";
 import session from "models/session.js";
 
+// URL da interface HTTP do MailCatcher para consultar e deletar emails.
+// A porta SMTP (1025) é usada pelo nodemailer para enviar; esta aqui
+// é a porta HTTP (1080) usada para inspecionar os emails recebidos.
 const emailHttpUrl = `http://${process.env.EMAIL_HTTP_HOST}:${process.env.EMAIL_HTTP_PORT}`;
 
 /**
@@ -91,6 +104,10 @@ async function waitForEmailServer() {
  * em seguida, deixando o banco no estado inicial para o próximo teste.
  *
  * @returns {Promise<void>}
+ *
+ * @example
+ * await orchestrator.clearDatabase();
+ * await orchestrator.runPendingMigrations(); // recria as tabelas do zero
  */
 async function clearDatabase() {
   await database.query("drop schema public cascade; create schema public;");
@@ -119,6 +136,12 @@ async function deleteAllEmails() {
  * anexando-o ao objeto como propriedade `text`.
  *
  * @returns {Promise<object>} Objeto do email com metadados do MailCatcher e propriedade `text` com o corpo em texto plano.
+ *
+ * @example
+ * await orchestrator.deleteAllEmails();
+ * // ... ação que dispara um email ...
+ * const email = await orchestrator.getLastEmail();
+ * console.log(email.text); // corpo do email em texto plano
  */
 async function getLastEmail() {
   const emailListResponse = await fetch(`${emailHttpUrl}/messages`);
@@ -158,6 +181,14 @@ async function runPendingMigrations() {
  * @param {string} [userObject.email] - Email desejado (padrão: gerado pelo Faker).
  * @param {string} [userObject.password] - Senha desejada (padrão: "validpassword").
  * @returns {Promise<import("models/user.js").User>} Objeto do usuário criado no banco.
+ *
+ * @example
+ * // Usuário com dados aleatórios
+ * const user = await orchestrator.createUser();
+ *
+ * @example
+ * // Usuário com username específico
+ * const user = await orchestrator.createUser({ username: "meunome" });
  */
 async function createUser(userObject) {
   return await user.create({
@@ -176,6 +207,10 @@ async function createUser(userObject) {
  *
  * @param {string} userId - UUID do usuário dono da sessão.
  * @returns {Promise<import("models/session.js").Session>} Objeto da sessão criada.
+ *
+ * @example
+ * const user = await orchestrator.createUser();
+ * const session = await orchestrator.createSession(user.id);
  */
 async function createSession(userId) {
   return await session.create(userId);

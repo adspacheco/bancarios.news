@@ -4,9 +4,22 @@ import { ServiceError } from "./errors.js";
 /**
  * Executa uma query no banco de dados PostgreSQL.
  *
- * @param {string | {text: string, values: Array}} queryInput - Query SQL simples como "SELECT * FROM users" ou query parametrizada como {text: "SELECT * FROM users WHERE name = $1", values: [userName]}.
+ * @param {string | {text: string, values: Array}} queryInput - Query SQL simples ou parametrizada.
  * @returns {Promise<{rows: Array<object>}>} Retorna um objeto que tem dentro dele uma propriedade chamada "rows", que é um array de objetos onde cada objeto é uma linha do resultado da query.
  * @throws {ServiceError} Erro na conexão com o banco ou na execução da query.
+ *
+ * @example
+ * // Query simples
+ * const result = await database.query("SELECT 1 + 1 AS sum");
+ * console.log(result.rows); // [{ sum: 2 }]
+ *
+ * @example
+ * // Query parametrizada (rows[0] para pegar o primeiro resultado)
+ * const result = await database.query({
+ *   text: "SELECT * FROM users WHERE email = $1",
+ *   values: ["user@email.com"],
+ * });
+ * console.log(result.rows[0]); // { id: "uuid", username: "fulano", ... }
  */
 async function query(queryInput) {
   let client;
@@ -30,6 +43,15 @@ async function query(queryInput) {
  * O chamador é responsável por encerrar a conexão com client.end().
  *
  * @returns {Promise<import("pg").Client>}
+ * @throws {Error} Se não conseguir conectar ao PostgreSQL.
+ *
+ * @example
+ * const client = await database.getNewClient();
+ * try {
+ *   const result = await client.query("SELECT NOW()");
+ * } finally {
+ *   await client.end();
+ * }
  */
 async function getNewClient() {
   const client = new Client({
@@ -53,6 +75,7 @@ const database = {
 export default database;
 
 /**
+ * @private
  * Retorna a configuração SSL para conexão com o PostgreSQL.
  *
  * - Se a variável POSTGRES_CA existir (DigitalOcean p.ex), retorna o certificado e ignora o restante.

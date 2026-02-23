@@ -1,3 +1,9 @@
+// Script de desenvolvimento que faz polling até o Postgres estar pronto.
+// É chamado pelo npm script "services:wait:database" antes de rodar as
+// migrations, garantindo que o container Docker já subiu e está aceitando
+// conexões. Sem isso, as migrations falhariam por tentar conectar cedo demais.
+//
+// Obs.: usa require (CommonJS) pois não será transpilado. Logo, máxima compatibilidade.
 const { exec } = require("node:child_process");
 
 /**
@@ -10,6 +16,11 @@ const { exec } = require("node:child_process");
  * mensagem de sucesso e encerra.
  */
 function checkPostgres() {
+  // O --host localhost força a checagem via TCP/IP. Sem ele, o pg_isready
+  // checaria via Unix socket, que é apenas um arquivo no filesystem e fica
+  // disponível antes do TCP durante a inicialização do Postgres. Como o
+  // node-pg-migrate conecta via TCP, precisamos garantir que essa via
+  // específica já está aceitando conexões.
   exec("docker exec postgres-dev pg_isready --host localhost", handleReturn);
 
   /**
@@ -33,5 +44,8 @@ function checkPostgres() {
   }
 }
 
+// Ponto de entrada do script: exibe a mensagem inicial e dispara o primeiro
+// check. A partir daqui, checkPostgres() chama a si mesma recursivamente
+// até o Postgres responder, resultando no terminal: 🔴 Aguardando....... 🟢 Pronto!
 process.stdout.write("\n\n🔴 Aguardando Postgres aceitar conexões");
 checkPostgres();
