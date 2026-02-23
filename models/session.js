@@ -11,7 +11,7 @@
 // mas findOneValidByToken() não o encontra mais (filtra expires_at > NOW()).
 import crypto from "node:crypto";
 import database from "infra/database.js";
-import { UnauthorizedError } from "infra/errors";
+import { UnauthorizedError } from "infra/errors.js";
 
 /**
  * @typedef {object} Session
@@ -44,7 +44,7 @@ const EXPIRATION_IN_MILLISECONDS = 60 * 60 * 24 * 30 * 1000;
  * @throws {UnauthorizedError} Se nenhuma sessão ativa for encontrada com esse token.
  *
  * @example
- * const session = await session.findOneValidByToken(cookieToken);
+ * const validSession = await session.findOneValidByToken(cookieToken);
  * // Se o token for inválido ou expirado → UnauthorizedError
  */
 async function findOneValidByToken(sessionToken) {

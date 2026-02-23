@@ -17,7 +17,8 @@
 // que tem toJSON(), ele chama esse método e serializa o que ele retornar,
 // nos dando controle total sobre o que vai na resposta da API.
 //
-// O controller.js chama toJSON() no error handler global (onError),
+// Quando o controller.js chama response.json(error), o JSON.stringify
+// interno encontra o toJSON() e serializa o que ele retornar,
 // garantindo que toda resposta de erro siga o mesmo formato:
 // { name, message, action, status_code }
 
