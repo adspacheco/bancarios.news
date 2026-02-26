@@ -39,9 +39,8 @@ describe("Use case: Registration Flow (all successful)", () => {
       id: createUserResponseBody.id,
       username: "RegistrationFlow",
       email: "registration.flow@bancarios.news",
-      features: [],
+      features: ["read:activation_token"],
       password: createUserResponseBody.password,
-      // features: ["read:activation_token"],
       created_at: createUserResponseBody.created_at,
       updated_at: createUserResponseBody.updated_at,
     });
