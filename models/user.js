@@ -20,6 +20,7 @@ import { NotFoundError, ValidationError } from "infra/errors.js";
  * @property {string} username - Único, max 30 chars.
  * @property {string} email - Único, max 254 chars.
  * @property {string} password - Hash bcrypt, sempre 60 chars.
+ * @property {string[]} features - Permissões do usuário (ex: "read:activation_token").
  * @property {Date} created_at - Timestamp UTC da criação.
  * @property {Date} updated_at - Timestamp UTC da última atualização.
  */
@@ -196,6 +197,7 @@ async function create(userInputValues) {
   await validateUniqueUsername(userInputValues.username);
   await validateUniqueEmail(userInputValues.email);
   await hashPasswordInObject(userInputValues);
+  injectDefaultFeaturesInObject(userInputValues);
 
   const newUser = await runInsertQuery(userInputValues);
   return newUser;
@@ -210,9 +212,9 @@ async function create(userInputValues) {
     const results = await database.query({
       text: `
         INSERT INTO
-          users (username, email, password)
+          users (username, email, password, features)
         VALUES
-          ($1, $2, $3)
+          ($1, $2, $3, $4)
         RETURNING
           *
         ;`,
@@ -220,9 +222,14 @@ async function create(userInputValues) {
         userInputValues.username,
         userInputValues.email,
         userInputValues.password,
+        userInputValues.features,
       ],
     });
     return results.rows[0];
+  }
+
+  function injectDefaultFeaturesInObject(userInputValues) {
+    userInputValues.features = ["read:activation_token"];
   }
 }
 
