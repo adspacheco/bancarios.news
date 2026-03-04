@@ -220,6 +220,24 @@ async function createSession(userId) {
   return await session.create(userId);
 }
 
+/**
+ * Extrai o primeiro UUID encontrado em uma string de texto.
+ *
+ * Útil para capturar tokens de ativação ou IDs de sessão
+ * presentes no corpo de emails enviados pelo sistema.
+ *
+ * @param {string} text - Texto onde o UUID será procurado.
+ * @returns {string|null} UUID encontrado, ou null se não houver nenhum.
+ *
+ * @example
+ * const email = await orchestrator.getLastEmail();
+ * const tokenId = orchestrator.extractUUID(email.text);
+ */
+function extractUUID(text) {
+  const match = text.match(/[0-9a-fA-F-]{36}/);
+  return match ? match[0] : null;
+}
+
 const orchestrator = {
   waitForAllServices,
   clearDatabase,
@@ -228,6 +246,7 @@ const orchestrator = {
   createSession,
   deleteAllEmails,
   getLastEmail,
+  extractUUID,
 };
 
 export default orchestrator;
