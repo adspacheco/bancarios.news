@@ -3,12 +3,18 @@
 // - errorHandlers: objeto passado direto ao next-connect, que usa onNoMatch
 //   (método HTTP errado) e onError (qualquer throw dentro de um handler).
 // - setSessionCookie / clearSessionCookie: gerenciam o cookie de sessão.
+// - injectAnonymousOrUser: middleware que identifica se a request vem de um
+//   usuário autenticado (com cookie) ou anônimo, e injeta os dados em
+//   request.context.user (incluindo as features do usuário).
+// - canRequest(feature): middleware factory que verifica se o usuário da
+//   request possui a feature necessária; caso contrário, lança ForbiddenError.
 //
 // Quando response.json(error) é chamado nos handlers, o JSON.stringify
 // interno encontra o toJSON() das nossas classes de erro (infra/errors.js)
 // e serializa apenas { name, message, action, status_code }.
 import * as cookie from "cookie";
 import session from "models/session.js";
+import user from "models/user.js";
 
 import {
   InternalServerError,
@@ -16,6 +22,7 @@ import {
   NotFoundError,
   ValidationError,
   UnauthorizedError,
+  ForbiddenError,
 } from "infra/errors.js";
 
 /**
@@ -40,7 +47,7 @@ function onNoMatchHandler(request, response) {
  * Handler global de erros. Toda exceção lançada dentro de um handler do
  * next-connect cai aqui. A cascata de instanceof decide o tratamento:
  *
- * 1. ValidationError / NotFoundError → repassa direto com seu status code.
+ * 1. ValidationError / NotFoundError / ForbiddenError → repassa direto com seu status code.
  * 2. UnauthorizedError → limpa o cookie de sessão antes de responder,
  *    invalidando a sessão no browser.
  * 3. Qualquer outro erro → encapsula num InternalServerError (500) e loga
@@ -54,7 +61,11 @@ function onNoMatchHandler(request, response) {
 function onErrorHandler(error, request, response) {
   // Erros de validação e not found: o cliente enviou algo errado,
   // então a mensagem específica pode ir direto na resposta.
-  if (error instanceof ValidationError || error instanceof NotFoundError) {
+  if (
+    error instanceof ValidationError ||
+    error instanceof NotFoundError ||
+    error instanceof ForbiddenError
+  ) {
     return response.status(error.statusCode).json(error);
   }
 
@@ -128,6 +139,96 @@ async function clearSessionCookie(response) {
   response.setHeader("Set-Cookie", setCookie);
 }
 
+/**
+ * Middleware que identifica se a request vem de um usuário autenticado
+ * (cookie `session_id` presente) ou anônimo, e popula `request.context.user`
+ * com os dados correspondentes (incluindo a lista de features).
+ *
+ * Deve ser registrado antes de qualquer middleware que dependa de
+ * `request.context.user` (como `canRequest`).
+ *
+ * @param {import("http").IncomingMessage} request
+ * @param {import("http").ServerResponse} response
+ * @param {Function} next - Callback do next-connect para continuar a cadeia.
+ *
+ * @example
+ * const router = createRouter();
+ * router.use(controller.injectAnonymousOrUser);
+ * router.post(controller.canRequest("create:session"), postHandler);
+ */
+async function injectAnonymousOrUser(request, response, next) {
+  if (request.cookies?.session_id) {
+    await injectAuthenticatedUser(request);
+    return next();
+  }
+
+  injectAnonymousUser(request);
+  return next();
+}
+
+/**
+ * Busca a sessão e o usuário no banco a partir do cookie `session_id`
+ * e injeta o objeto completo do usuário em `request.context.user`.
+ *
+ * @param {import("http").IncomingMessage} request - Request com `cookies.session_id` presente.
+ */
+async function injectAuthenticatedUser(request) {
+  const sessionToken = request.cookies.session_id;
+  const sessionObject = await session.findOneValidByToken(sessionToken);
+  const userObject = await user.findOneById(sessionObject.user_id);
+
+  request.context = {
+    ...request.context,
+    user: userObject,
+  };
+}
+
+/**
+ * Injeta um objeto de usuário anônimo em `request.context.user`
+ * com as features padrão para visitantes não autenticados:
+ * `read:activation_token`, `create:session` e `create:user`.
+ *
+ * @param {import("http").IncomingMessage} request
+ */
+function injectAnonymousUser(request) {
+  const anonymousUserObject = {
+    features: ["read:activation_token", "create:session", "create:user"],
+  };
+
+  request.context = {
+    ...request.context,
+    user: anonymousUserObject,
+  };
+}
+
+/**
+ * Factory de middleware que verifica se o usuário da request possui
+ * a feature necessária. Se não possuir, lança `ForbiddenError` (403).
+ *
+ * Depende de `injectAnonymousOrUser` ter sido executado antes,
+ * pois lê `request.context.user.features`.
+ *
+ * @param {string} feature - Nome da feature exigida (ex: "create:session").
+ * @returns {Function} Middleware do next-connect que autoriza ou rejeita a request.
+ *
+ * @example
+ * router.post(controller.canRequest("create:session"), postHandler);
+ */
+function canRequest(feature) {
+  return function canRequestMiddleware(request, response, next) {
+    const userTryingToRequest = request.context.user;
+
+    if (userTryingToRequest.features.includes(feature)) {
+      return next();
+    }
+
+    throw new ForbiddenError({
+      message: "Você não possui permissão para executar esta ação.",
+      action: `Verifique se o seu usuário possui a feature "${feature}"`,
+    });
+  };
+}
+
 const controller = {
   // Objeto passado ao router.handler() do next-connect nas rotas da API:
   // export default router.handler(controller.errorHandlers)
@@ -137,6 +238,8 @@ const controller = {
   },
   setSessionCookie,
   clearSessionCookie,
+  injectAnonymousOrUser,
+  canRequest,
 };
 
 export default controller;

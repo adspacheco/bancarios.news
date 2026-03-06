@@ -180,6 +180,47 @@ export class NotFoundError extends Error {
 }
 
 /**
+ * Erro para quando o usuário está autenticado, mas não possui permissão
+ * para executar a ação solicitada (feature ausente).
+ * Responde com status 403.
+ *
+ * @extends {Error}
+ *
+ * @example
+ * throw new ForbiddenError({
+ *   message: "Você não possui permissão para executar esta ação.",
+ *   action: 'Verifique se o seu usuário possui a feature "create:session"',
+ * });
+ */
+export class ForbiddenError extends Error {
+  /**
+   * @param {object} params
+   * @param {Error} [params.cause] - Erro original que causou a falha.
+   * @param {string} [params.message="Acesso negado."] - Mensagem descritiva do erro.
+   * @param {string} [params.action="Verifique as features necessárias antes de continuar."] - Instrução para o cliente.
+   */
+  constructor({ cause, message, action }) {
+    super(message || "Acesso negado.", {
+      cause,
+    });
+    this.name = "ForbiddenError";
+    this.action =
+      action || "Verifique as features necessárias antes de continuar.";
+    this.statusCode = 403;
+  }
+
+  /** @see InternalServerError.prototype.toJSON */
+  toJSON() {
+    return {
+      name: this.name,
+      message: this.message,
+      action: this.action,
+      status_code: this.statusCode,
+    };
+  }
+}
+
+/**
  * Erro para quando o usuário não está autenticado ou as credenciais são inválidas.
  * Responde com status 401.
  *
