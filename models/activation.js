@@ -12,7 +12,8 @@ import user from "models/user.js";
 import email from "infra/email.js";
 import database from "infra/database.js";
 import webserver from "infra/webserver.js";
-import { NotFoundError } from "infra/errors.js";
+import { ForbiddenError, NotFoundError } from "infra/errors.js";
+import authorization from "./authorization";
 
 const EXPIRATION_IN_MILLISECONDS = 60 * 15 * 1000; // 15 minutes
 
@@ -166,16 +167,29 @@ async function markTokenAsUsed(activationTokenId) {
 /**
  * Ativa a conta de um usuário, concedendo as permissões de sessão.
  *
- * Substitui as features do usuário por `["create:session", "read:session"]`,
- * permitindo que ele faça login e consulte seus dados no sistema.
+ * Antes de ativar, verifica se o usuário ainda possui a feature
+ * `"read:activation_token"` (usuários já ativados perdem essa feature,
+ * impedindo reativação). Substitui as features do usuário por
+ * `["create:session", "read:session"]`, permitindo que ele faça login
+ * e consulte seus dados no sistema.
  *
  * @param {string} userId - UUID do usuário a ser ativado.
  * @returns {Promise<import("models/user.js").User>} Objeto do usuário com as features atualizadas.
+ * @throws {ForbiddenError} Se o usuário não possuir a feature `"read:activation_token"`.
  *
  * @example
  * const activatedUser = await activation.activateUserByUserId("uuid-do-usuario");
  */
 async function activateUserByUserId(userId) {
+  const userToActivate = await user.findOneById(userId);
+
+  if (!authorization.can(userToActivate, "read:activation_token")) {
+    throw new ForbiddenError({
+      message: "Você não pode mais utilizar tokens de ativação.",
+      action: "Entre em contato com o suporte.",
+    });
+  }
+
   const activatedUser = await user.setFeatures(userId, [
     "create:session",
     "read:session",
@@ -217,6 +231,7 @@ const activation = {
   markTokenAsUsed,
   activateUserByUserId,
   sendEmailToUser,
+  EXPIRATION_IN_MILLISECONDS,
 };
 
 export default activation;
