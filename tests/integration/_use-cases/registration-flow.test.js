@@ -2,7 +2,6 @@ import user from "models/user.js";
 import webserver from "infra/webserver";
 import activation from "models/activation.js";
 import orchestrator from "tests/orchestrator.js";
-// import webserver from "infra/webserver.js";
 
 beforeAll(async () => {
   await orchestrator.waitForAllServices();
@@ -78,7 +77,7 @@ describe("Use case: Registration Flow (all successful)", () => {
     const activatedUser = await user.findOneByUsername("RegistrationFlow");
     expect(activatedUser.features).toEqual([
       "create:session",
-      // "read:session",
+      "read:session",
       // "update:user",
     ]);
   });
@@ -103,13 +102,13 @@ describe("Use case: Registration Flow (all successful)", () => {
   });
 
   test("Get user information", async () => {
-    // const userResponse = await fetch("http://localhost:3000/api/v1/user", {
-    //   headers: {
-    //     cookie: `session_id=${createSessionsResponseBody.token}`,
-    //   },
-    // });
-    // expect(userResponse.status).toBe(200);
-    // const userResponseBody = await userResponse.json();
-    // expect(userResponseBody.id).toBe(createUserResponseBody.id);
+    const userResponse = await fetch("http://localhost:3000/api/v1/user", {
+      headers: {
+        cookie: `session_id=${createSessionsResponseBody.token}`,
+      },
+    });
+    expect(userResponse.status).toBe(200);
+    const userResponseBody = await userResponse.json();
+    expect(userResponseBody.id).toBe(createUserResponseBody.id);
   });
 });

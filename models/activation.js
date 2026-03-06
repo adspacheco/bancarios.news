@@ -164,10 +164,10 @@ async function markTokenAsUsed(activationTokenId) {
 }
 
 /**
- * Ativa a conta de um usuário, concedendo a permissão de criar sessão.
+ * Ativa a conta de um usuário, concedendo as permissões de sessão.
  *
- * Substitui as features do usuário por `["create:session"]`,
- * permitindo que ele faça login no sistema.
+ * Substitui as features do usuário por `["create:session", "read:session"]`,
+ * permitindo que ele faça login e consulte seus dados no sistema.
  *
  * @param {string} userId - UUID do usuário a ser ativado.
  * @returns {Promise<import("models/user.js").User>} Objeto do usuário com as features atualizadas.
@@ -176,7 +176,10 @@ async function markTokenAsUsed(activationTokenId) {
  * const activatedUser = await activation.activateUserByUserId("uuid-do-usuario");
  */
 async function activateUserByUserId(userId) {
-  const activatedUser = await user.setFeatures(userId, ["create:session"]);
+  const activatedUser = await user.setFeatures(userId, [
+    "create:session",
+    "read:session",
+  ]);
   return activatedUser;
 }
 
