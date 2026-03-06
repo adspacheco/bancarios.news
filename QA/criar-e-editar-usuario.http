@@ -1,14 +1,13 @@
-@baseUrl = http://localhost:3000/api/v1
+# @baseUrl = http://localhost:3000/api/v1
 # @baseUrl = https://www.bancarios.news/api/v1
-# @baseUrl = https://bancariosnews-git-hash-password-adsprojetos.vercel.app/api/v1
-
+@baseUrl = https://bancariosnews-675fmllxj-adsprojetos.vercel.app/api/v1
 ### Create user
 POST {{baseUrl}}/users
 Content-Type: application/json
 
 {
-    "username": "adspacheco2",
-    "email": "adspacheco2@bancarios.news",
+    "username": "ativa",
+    "email": "ativa@bancarios.news",
     "password": "senha"
 }
 

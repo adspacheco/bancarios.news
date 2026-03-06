@@ -48,4 +48,4 @@ Content-Type: application/json
 #     do jar dele por baixo dos panos.
 #   - Para testar tokens inválidos corretamente, desabilite essa config
 GET {{baseUrl}}/user
-Cookie: session_id=3de8227333b14e315f6623f7e42c2173ba089362054a236c507dfa8a9687e50031c6855d7e3c32ed3f70e59c6c388460
+Cookie: session_id=49340a3e08a437919d446afecd0a66723299c8426fa407c33fcbf24ba8166c6c23083557147c6132ca6f23a807b06468

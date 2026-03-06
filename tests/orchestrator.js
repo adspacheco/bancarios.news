@@ -14,6 +14,7 @@ import database from "infra/database.js";
 import migrator from "models/migrator.js";
 import user from "models/user.js";
 import session from "models/session.js";
+import activation from "models/activation.js";
 
 // URL da interface HTTP do MailCatcher para consultar e deletar emails.
 // A porta SMTP (1025) é usada pelo nodemailer para enviar; esta aqui
@@ -238,6 +239,23 @@ function extractUUID(text) {
   return match ? match[0] : null;
 }
 
+/**
+ * Ativa a conta de um usuário inativo, concedendo permissão de login.
+ *
+ * Wrapper sobre `activation.activateUserByUserId()` para simplificar
+ * a ativação de contas nos testes sem repetir imports.
+ *
+ * @param {import("models/user.js").User} inactiveUser - Objeto do usuário a ser ativado.
+ * @returns {Promise<import("models/user.js").User>} Objeto do usuário com as features atualizadas.
+ *
+ * @example
+ * const user = await orchestrator.createUser();
+ * await orchestrator.activateUser(user);
+ */
+async function activateUser(inactiveUser) {
+  return await activation.activateUserByUserId(inactiveUser.id);
+}
+
 const orchestrator = {
   waitForAllServices,
   clearDatabase,
@@ -247,6 +265,7 @@ const orchestrator = {
   deleteAllEmails,
   getLastEmail,
   extractUUID,
+  activateUser,
 };
 
 export default orchestrator;

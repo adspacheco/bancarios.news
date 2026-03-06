@@ -6,8 +6,8 @@
 // - injectAnonymousOrUser: middleware que identifica se a request vem de um
 //   usuário autenticado (com cookie) ou anônimo, e injeta os dados em
 //   request.context.user (incluindo as features do usuário).
-// - canRequest(feature): middleware factory que verifica se o usuário da
-//   request possui a feature necessária; caso contrário, lança ForbiddenError.
+// - canRequest(feature): middleware factory que delega para authorization.can()
+//   a verificação de se o usuário possui a feature; caso contrário, lança ForbiddenError.
 //
 // Quando response.json(error) é chamado nos handlers, o JSON.stringify
 // interno encontra o toJSON() das nossas classes de erro (infra/errors.js)
@@ -15,6 +15,7 @@
 import * as cookie from "cookie";
 import session from "models/session.js";
 import user from "models/user.js";
+import authorization from "models/authorization.js";
 
 import {
   InternalServerError,
@@ -206,7 +207,8 @@ function injectAnonymousUser(request) {
  * a feature necessária. Se não possuir, lança `ForbiddenError` (403).
  *
  * Depende de `injectAnonymousOrUser` ter sido executado antes,
- * pois lê `request.context.user.features`.
+ * pois lê `request.context.user`. Delega a verificação para
+ * `authorization.can()`, que decide se o usuário possui a feature.
  *
  * @param {string} feature - Nome da feature exigida (ex: "create:session").
  * @returns {Function} Middleware do next-connect que autoriza ou rejeita a request.
@@ -218,7 +220,7 @@ function canRequest(feature) {
   return function canRequestMiddleware(request, response, next) {
     const userTryingToRequest = request.context.user;
 
-    if (userTryingToRequest.features.includes(feature)) {
+    if (authorization.can(userTryingToRequest, feature)) {
       return next();
     }
 
