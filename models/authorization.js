@@ -5,7 +5,8 @@
 //
 // Além da verificação de features, o módulo também considera o recurso-alvo
 // (resource) para features que exigem ownership, como "update:user", onde
-// o usuário só pode atualizar o próprio perfil.
+// o usuário só pode atualizar o próprio perfil — a menos que possua a
+// feature "update:user:others", que permite atuar sobre qualquer usuário.
 //
 // Ter essa lógica isolada permite evoluir o modelo de permissões sem alterar
 // os consumidores (controller.canRequest, rotas da API, etc.).
@@ -20,7 +21,8 @@
  * @param {string} feature - Nome da feature exigida (ex: "create:session", "update:user").
  * @param {object} [resource] - Recurso-alvo da ação. Quando informado junto com
  *   features que exigem ownership (ex: "update:user"), o `user.id` é comparado
- *   com `resource.id` para garantir que o usuário só atue sobre si mesmo.
+ *   com `resource.id` para garantir que o usuário só atue sobre si mesmo —
+ *   a menos que possua "update:user:others", que ignora a verificação de ownership.
  * @param {string} resource.id - Identificador único do recurso-alvo.
  * @returns {boolean} `true` se o usuário está autorizado, `false` caso contrário.
  *
@@ -28,8 +30,12 @@
  * authorization.can(request.context.user, "create:session"); // true ou false
  *
  * @example
- * // Verifica se o usuário pode atualizar o recurso-alvo (ownership)
- * authorization.can(userTryingToPatch, "update:user", targetUser); // true somente se user.id === targetUser.id
+ * // Verifica ownership: true se user.id === targetUser.id
+ * authorization.can(userTryingToPatch, "update:user", targetUser);
+ *
+ * @example
+ * // Usuário privilegiado com "update:user:others" pode atualizar qualquer usuário
+ * authorization.can(privilegedUser, "update:user", anyUser); // true
  */
 function can(user, feature, resource) {
   let authorized = false;
@@ -41,7 +47,7 @@ function can(user, feature, resource) {
   if (feature === "update:user" && resource) {
     authorized = false;
 
-    if (user.id === resource.id) {
+    if (user.id === resource.id || can(user, "update:user:others")) {
       authorized = true;
     }
   }

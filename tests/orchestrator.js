@@ -256,6 +256,25 @@ async function activateUser(inactiveUser) {
   return await activation.activateUserByUserId(inactiveUser.id);
 }
 
+/**
+ * Adiciona features (permissões) a um usuário existente.
+ *
+ * Wrapper sobre `user.addFeatures()` para simplificar a adição
+ * de permissões nos testes sem repetir imports.
+ *
+ * @param {import("models/user.js").User} userObject - Objeto do usuário que receberá as features.
+ * @param {string[]} features - Features a serem adicionadas (ex: ["update:user:others"]).
+ * @returns {Promise<import("models/user.js").User>} Objeto do usuário com as features atualizadas.
+ *
+ * @example
+ * const user = await orchestrator.createUser();
+ * await orchestrator.addFeaturesToUser(user, ["update:user:others"]);
+ */
+async function addFeaturesToUser(userObject, features) {
+  const updatedUser = await user.addFeatures(userObject.id, features);
+  return updatedUser;
+}
+
 const orchestrator = {
   waitForAllServices,
   clearDatabase,
@@ -266,6 +285,7 @@ const orchestrator = {
   getLastEmail,
   extractUUID,
   activateUser,
+  addFeaturesToUser,
 };
 
 export default orchestrator;

@@ -1,7 +1,7 @@
 // CRUD de usuários e validações de negócio.
 //
 // Padrões usados neste módulo:
-// - Cada função pública (create, findOne*, update, setFeatures) delega a query SQL
+// - Cada função pública (create, findOne*, update, setFeatures, addFeatures) delega a query SQL
 //   para uma função aninhada (runSelectQuery, runInsertQuery, etc.),
 //   separando a lógica de negócio da execução do SQL.
 // - Todas as queries usam parâmetros ($1, $2) para evitar SQL injection.
@@ -420,6 +420,51 @@ async function setFeatures(userId, features) {
   }
 }
 
+/**
+ * Adiciona features (permissões) a um usuário, mantendo as existentes.
+ *
+ * Diferente de `setFeatures` que sobrescreve o array inteiro, esta função
+ * usa `array_cat` para concatenar as novas features ao array existente
+ * e atualiza o `updated_at` com o timestamp UTC atual.
+ *
+ * @param {string} userId - UUID do usuário a ser atualizado.
+ * @param {string[]} features - Features a serem adicionadas (ex: ["update:user:others"]).
+ * @returns {Promise<User>} Objeto do usuário com as features atualizadas.
+ *
+ * @example
+ * const updated = await user.addFeatures("uuid-do-usuario", ["update:user:others"]);
+ */
+async function addFeatures(userId, features) {
+  const updatedUser = await runUpdateQuery(userId, features);
+  return updatedUser;
+
+  /**
+   * Executa o UPDATE no banco usando `array_cat` e retorna o usuário atualizado.
+   *
+   * @param {string} userId
+   * @param {string[]} features
+   * @returns {Promise<User>} Linha atualizada retornada pelo RETURNING *.
+   */
+  async function runUpdateQuery(userId, features) {
+    const results = await database.query({
+      text: `
+       UPDATE
+         users
+       SET
+         features = array_cat(features, $2),
+         updated_at = timezone('utc', now())
+       WHERE
+         id = $1
+       RETURNING
+         *
+       ;`,
+      values: [userId, features],
+    });
+
+    return results.rows[0];
+  }
+}
+
 const user = {
   create,
   findOneById,
@@ -427,6 +472,7 @@ const user = {
   findOneByEmail,
   update,
   setFeatures,
+  addFeatures,
 };
 
 export default user;
