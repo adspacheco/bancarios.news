@@ -11,6 +11,7 @@
 // - Produção: conecta no servidor SMTP real com TLS (secure: true),
 //   garantindo que credenciais e conteúdo trafeguem criptografados.
 import nodemailer from "nodemailer";
+import { ServiceError } from "./errors.js";
 
 /**
  * Transporter do Nodemailer configurado via variáveis de ambiente.
@@ -36,7 +37,7 @@ const transporter = nodemailer.createTransport({
  *
  * @param {import("nodemailer").SendMailOptions} mailOptions - Opções do email (from, to, subject, html, etc.).
  * @returns {Promise<void>}
- * @throws {Error} Se a conexão SMTP falhar ou o envio for rejeitado.
+ * @throws {ServiceError} Se a conexão SMTP falhar ou o envio for rejeitado.
  *
  * @example
  * await email.send({
@@ -47,7 +48,16 @@ const transporter = nodemailer.createTransport({
  * });
  */
 async function send(mailOptions) {
-  await transporter.sendMail(mailOptions);
+  try {
+    await transporter.sendMail(mailOptions);
+  } catch (error) {
+    throw new ServiceError({
+      message: "Não foi possível enviar o email.",
+      action: "Verifique se o serviço de email está disponível.",
+      cause: error,
+      context: mailOptions,
+    });
+  }
 }
 
 const email = {

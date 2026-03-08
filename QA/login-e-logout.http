@@ -1,6 +1,6 @@
-#@baseUrl = http://localhost:3000/api/v1
+# @baseUrl = http://localhost:3000/api/v1
 # @baseUrl = https://www.bancarios.news/api/v1
-@baseUrl = https://bancariosnews-git-sessions-delete-adsprojetos.vercel.app/api/v1
+@baseUrl = https://bancariosnews-git-auth-adsprojetos.vercel.app/api/v1
 
 ### Create user
 POST {{baseUrl}}/users
@@ -12,7 +12,13 @@ Content-Type: application/json
     "password": "senha"
 }
 
+### Activate account
+# Necessário antes do login: concede a feature "create:session".
+# Substitua o UUID pelo token_id enviado por email após o cadastro.
+PATCH {{baseUrl}}/activations/4241657e-c050-4af0-998b-aca1419f39e4
+
 ### Login (create session)
+# Só funciona após a ativação da conta (etapa acima).
 POST {{baseUrl}}/sessions
 Content-Type: application/json
 

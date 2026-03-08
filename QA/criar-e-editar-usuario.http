@@ -1,23 +1,34 @@
-@baseUrl = http://localhost:3000/api/v1
+# @baseUrl = http://localhost:3000/api/v1
 # @baseUrl = https://www.bancarios.news/api/v1
-# @baseUrl = https://bancariosnews-git-hash-password-adsprojetos.vercel.app/api/v1
+@baseUrl = https://bancariosnews-git-auth-adsprojetos.vercel.app/api/v1
 
 ### Create user
+# Anônimo possui a feature "create:user" por padrão.
+# Após o cadastro, um email de ativação é enviado automaticamente.
 POST {{baseUrl}}/users
 Content-Type: application/json
 
 {
-    "username": "adspacheco2",
-    "email": "adspacheco2@bancarios.news",
+    "username": "adspacheco",
+    "email": "adspacheco@bancarios.news",
     "password": "senha"
 }
 
 ### Get user
-GET {{baseUrl}}/users/ADSpacheco2
+# Qualquer visitante pode consultar o perfil público de um usuário.
+# Os campos retornados são filtrados: id, username, features, created_at, updated_at.
+# O campo "email" só aparece quando o próprio usuário consulta via GET /user.
+GET {{baseUrl}}/users/adspacheco2
 
-### Update user
-PATCH {{baseUrl}}/users/adspacheCO2
+### Update user (authenticated)
+# Requer a feature "update:user" (concedida na ativação da conta).
+# O usuário só pode atualizar o próprio perfil, a menos que possua
+# a feature "update:user:others".
+#
+# IMPORTANTE: Faça login antes e use o session_id retornado.
+PATCH {{baseUrl}}/users/adspacheco2
 Content-Type: application/json
+Cookie: session_id=<token_do_login>
 
 {
     "username": "adspacheco3",

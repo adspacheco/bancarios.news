@@ -1,0 +1,21 @@
+#@baseUrl = http://localhost:3000/api/v1
+# @baseUrl = https://www.bancarios.news/api/v1
+@baseUrl = https://bancariosnews-git-auth-adsprojetos.vercel.app/api/v1
+
+### Create user
+POST {{baseUrl}}/users
+Content-Type: application/json
+
+{
+    "username": "adspacheco2",
+    "email": "adspacheco2@bancarios.news",
+    "password": "senha"
+}
+
+### Activate account
+# Marca o token como usado (used_at) e ativa o usuário,
+# concedendo a feature "create:session" para permitir login.
+#
+# O token_id é o UUID enviado por email após o cadastro.
+# Consulte o email de ativação ou a tabela user_activation_tokens no banco.
+PATCH {{baseUrl}}/activations/8adbbd0c-dbe0-4d94-ba89-b64417327c80

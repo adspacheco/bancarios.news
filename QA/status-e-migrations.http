@@ -1,12 +1,29 @@
-@baseUrl = http://localhost:3000/api/v1
+# @baseUrl = http://localhost:3000/api/v1
 # @baseUrl = https://www.bancarios.news/api/v1
-# @baseUrl =
+@baseUrl = https://bancariosnews-git-auth-adsprojetos.vercel.app/api/v1
 
-### Get status
+### Get status (anonymous)
+# Retorna max_connections e opened_connections.
+# O campo "version" do banco é omitido para quem
+# não possui a feature "read:status:all".
 GET {{baseUrl}}/status
 
-### List pending migrations
-GET {{baseUrl}}/migrations
+### Get status (authenticated - com version)
+# Usuário com "read:status:all" recebe o campo "version" adicional.
+# Para conceder essa feature, execute no banco:
+#   UPDATE users SET features = array_cat(features, '{"read:status:all"}') WHERE username = '<seu_usuario>';
+GET {{baseUrl}}/status
+Cookie: session_id=<token_do_login>
 
-### Run pending migrations
+### List pending migrations (authenticated)
+# Requer a feature "read:migration".
+# Usuários comuns não possuem essa feature por padrão.
+# Para conceder, execute no banco:
+#   UPDATE users SET features = array_cat(features, '{"read:migration","create:migration"}') WHERE username = '<seu_usuario>';
+GET {{baseUrl}}/migrations
+Cookie: session_id=<token_do_login>
+
+### Run pending migrations (authenticated)
+# Requer a feature "create:migration".
 POST {{baseUrl}}/migrations
+Cookie: session_id=<token_do_login>

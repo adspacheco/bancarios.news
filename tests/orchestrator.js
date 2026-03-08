@@ -14,6 +14,7 @@ import database from "infra/database.js";
 import migrator from "models/migrator.js";
 import user from "models/user.js";
 import session from "models/session.js";
+import activation from "models/activation.js";
 
 // URL da interface HTTP do MailCatcher para consultar e deletar emails.
 // A porta SMTP (1025) é usada pelo nodemailer para enviar; esta aqui
@@ -148,6 +149,10 @@ async function getLastEmail() {
   const emailListBody = await emailListResponse.json();
   const lastEmailItem = emailListBody.pop();
 
+  if (!lastEmailItem) {
+    return null;
+  }
+
   const emailTextResponse = await fetch(
     `${emailHttpUrl}/messages/${lastEmailItem.id}.plain`,
   );
@@ -216,6 +221,60 @@ async function createSession(userId) {
   return await session.create(userId);
 }
 
+/**
+ * Extrai o primeiro UUID encontrado em uma string de texto.
+ *
+ * Útil para capturar tokens de ativação ou IDs de sessão
+ * presentes no corpo de emails enviados pelo sistema.
+ *
+ * @param {string} text - Texto onde o UUID será procurado.
+ * @returns {string|null} UUID encontrado, ou null se não houver nenhum.
+ *
+ * @example
+ * const email = await orchestrator.getLastEmail();
+ * const tokenId = orchestrator.extractUUID(email.text);
+ */
+function extractUUID(text) {
+  const match = text.match(/[0-9a-fA-F-]{36}/);
+  return match ? match[0] : null;
+}
+
+/**
+ * Ativa a conta de um usuário inativo, concedendo permissão de login.
+ *
+ * Wrapper sobre `activation.activateUserByUserId()` para simplificar
+ * a ativação de contas nos testes sem repetir imports.
+ *
+ * @param {import("models/user.js").User} inactiveUser - Objeto do usuário a ser ativado.
+ * @returns {Promise<import("models/user.js").User>} Objeto do usuário com as features atualizadas.
+ *
+ * @example
+ * const user = await orchestrator.createUser();
+ * await orchestrator.activateUser(user);
+ */
+async function activateUser(inactiveUser) {
+  return await activation.activateUserByUserId(inactiveUser.id);
+}
+
+/**
+ * Adiciona features (permissões) a um usuário existente.
+ *
+ * Wrapper sobre `user.addFeatures()` para simplificar a adição
+ * de permissões nos testes sem repetir imports.
+ *
+ * @param {import("models/user.js").User} userObject - Objeto do usuário que receberá as features.
+ * @param {string[]} features - Features a serem adicionadas (ex: ["update:user:others"]).
+ * @returns {Promise<import("models/user.js").User>} Objeto do usuário com as features atualizadas.
+ *
+ * @example
+ * const user = await orchestrator.createUser();
+ * await orchestrator.addFeaturesToUser(user, ["update:user:others"]);
+ */
+async function addFeaturesToUser(userObject, features) {
+  const updatedUser = await user.addFeatures(userObject.id, features);
+  return updatedUser;
+}
+
 const orchestrator = {
   waitForAllServices,
   clearDatabase,
@@ -224,6 +283,9 @@ const orchestrator = {
   createSession,
   deleteAllEmails,
   getLastEmail,
+  extractUUID,
+  activateUser,
+  addFeaturesToUser,
 };
 
 export default orchestrator;

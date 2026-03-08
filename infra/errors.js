@@ -71,8 +71,10 @@ export class InternalServerError extends Error {
  *
  * @example
  * throw new ServiceError({
- *   message: "Erro na conexão com Banco ou na Query.",
+ *   message: "Não foi possível enviar o email.",
+ *   action: "Verifique se o serviço de email está disponível.",
  *   cause: originalError,
+ *   context: { to: "user@email.com", subject: "Ativação" },
  * });
  */
 export class ServiceError extends Error {
@@ -80,23 +82,32 @@ export class ServiceError extends Error {
    * @param {object} params
    * @param {Error} [params.cause] - Erro original vindo do serviço.
    * @param {string} [params.message="Serviço indisponível no momento."] - Mensagem descritiva do erro.
+   * @param {string} [params.action="Verifique se o serviço está disponível."] - Instrução para o cliente corrigir o problema.
+   * @param {object} [params.context] - Dados de contexto para debugging (ex: parâmetros da operação que falhou).
    */
-  constructor({ cause, message }) {
+  constructor({ cause, message, action, context }) {
     super(message || "Serviço indisponível no momento.", {
       cause,
     });
     this.name = "ServiceError";
-    this.action = "Verifique se o serviço está disponível.";
+    this.action = action || "Verifique se o serviço está disponível.";
     this.statusCode = 503;
+    this.context = context;
   }
 
-  /** @see InternalServerError.prototype.toJSON */
+  /**
+   * Converte o erro em objeto para resposta da API.
+   * Inclui `context` quando presente para facilitar debugging.
+   *
+   * @returns {{ name: string, message: string, action: string, status_code: number, context?: object }}
+   */
   toJSON() {
     return {
       name: this.name,
       message: this.message,
       action: this.action,
       status_code: this.statusCode,
+      context: this.context,
     };
   }
 }
@@ -166,6 +177,47 @@ export class NotFoundError extends Error {
     this.action =
       action || "Verifique se os parâmetros enviados na consulta estão certos.";
     this.statusCode = 404;
+  }
+
+  /** @see InternalServerError.prototype.toJSON */
+  toJSON() {
+    return {
+      name: this.name,
+      message: this.message,
+      action: this.action,
+      status_code: this.statusCode,
+    };
+  }
+}
+
+/**
+ * Erro para quando o usuário está autenticado, mas não possui permissão
+ * para executar a ação solicitada (feature ausente).
+ * Responde com status 403.
+ *
+ * @extends {Error}
+ *
+ * @example
+ * throw new ForbiddenError({
+ *   message: "Você não possui permissão para executar esta ação.",
+ *   action: 'Verifique se o seu usuário possui a feature "create:session"',
+ * });
+ */
+export class ForbiddenError extends Error {
+  /**
+   * @param {object} params
+   * @param {Error} [params.cause] - Erro original que causou a falha.
+   * @param {string} [params.message="Acesso negado."] - Mensagem descritiva do erro.
+   * @param {string} [params.action="Verifique as features necessárias antes de continuar."] - Instrução para o cliente.
+   */
+  constructor({ cause, message, action }) {
+    super(message || "Acesso negado.", {
+      cause,
+    });
+    this.name = "ForbiddenError";
+    this.action =
+      action || "Verifique as features necessárias antes de continuar.";
+    this.statusCode = 403;
   }
 
   /** @see InternalServerError.prototype.toJSON */
